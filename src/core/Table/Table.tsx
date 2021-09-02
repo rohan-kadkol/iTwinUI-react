@@ -42,6 +42,7 @@ import {
   onSelectHandler,
 } from './actionHandlers';
 import { onSingleSelectHandler } from './actionHandlers/selectHandler';
+import { CSSTransition, TransitionGroup } from 'react-transition-group';
 
 const singleRowSelectedAction = 'singleRowSelected';
 
@@ -238,6 +239,8 @@ export const Table = <
     [],
   );
 
+  const rowHeightMap = React.useRef<{ [key: string]: number }>({});
+
   // useRef prevents from rerendering when one of these callbacks changes
   const onBottomReachedRef = React.useRef(onBottomReached);
   const onRowInViewportRef = React.useRef(onRowInViewport);
@@ -366,6 +369,74 @@ export const Table = <
     [dispatch, isSelectable, onRowClick, isRowDisabled],
   );
 
+  // const getSubrowsBefore = React.useCallback(
+  //   (row: Row<T>) => {
+  //     const index = rows.findIndex((r) => r.id === row.id);
+  //     if (index === -1) {
+  //       return 0;
+  //     }
+  //     let dontStop = true;
+  //     let count = 0;
+  //     for (let i = index - 1; dontStop && i >= 0; i--) {
+  //       if (rows[i].depth !== row.depth) {
+  //         dontStop = false;
+  //       }
+  //       count++;
+  //     }
+  //     return count;
+  //   },
+  //   [rows],
+  // );
+
+  // const AnimatedRow = ({ row }: { row: Row<T> }) => {
+  //   const memoizedRowProps: TableRowMemoizedProps<T> = {
+  //     row,
+  //     rowProps,
+  //     isLast: row.index === data.length - 1,
+  //     onRowInViewport: onRowInViewportRef,
+  //     onBottomReached: onBottomReachedRef,
+  //     intersectionMargin,
+  //     state,
+  //     onClick: onRowClickHandler,
+  //     subComponent,
+  //     isDisabled: !!isRowDisabled?.(row.original),
+  //     tableHasSubRows: hasAnySubRows,
+  //     tableInstance: instance,
+  //     expanderCell,
+  //     // ref: (ref: HTMLElement) => {
+  //     //   if (ref) {
+  //     //     rowHeightMap.current[row.id] = ref.offsetHeight;
+  //     //   }
+  //     // },
+  //   };
+  //   return (
+  //     <>
+  //       {/* {row.depth > 0 ? (
+  //         <CSSTransition
+  //           key={row.getRowProps().key}
+  //           timeout={200}
+  //           unmountOnExit={true}
+  //           onEnter={(node) => (node.style.height = `0px`)}
+  //           onEntering={(node) =>
+  //             (node.style.height = `${rowHeightMap.current[row.id]}px`)
+  //           }
+  //           onEntered={(node) => (node.style.height = 'auto')}
+  //           onExit={(node) =>
+  //             (node.style.height = `${rowHeightMap.current[row.id]}px`)
+  //           }
+  //           onExiting={(node) => (node.style.height = `0px`)}
+  //           // onExited={(node) => (node.style.height = `auto`)}
+  //           classNames='iui'
+  //         >
+  //           <TableRowMemoized {...memoizedRowProps} />
+  //         </CSSTransition>
+  //       ) : ( */}
+  //       <TableRowMemoized {...memoizedRowProps} />
+  //       {/* )} */}
+  //     </>
+  //   );
+  // };
+
   return (
     <div
       ref={(element) => setOwnerDocument(element?.ownerDocument)}
@@ -430,28 +501,105 @@ export const Table = <
         })}
       </div>
       <div {...getTableBodyProps({ className: 'iui-table-body' })}>
-        {data.length !== 0 &&
+        {/* {hasAnySubRows && ( */}
+        <TransitionGroup component={null}>
+          {data.length !== 0 &&
+            rows.map((row: Row<T>) => {
+              prepareRow(row);
+              return row.depth > 0 ? (
+                <CSSTransition
+                  key={row.getRowProps().key}
+                  timeout={200}
+                  unmountOnExit={true}
+                  onEnter={(node) => (node.style.height = `0px`)}
+                  onEntering={(node) =>
+                    (node.style.height = `${rowHeightMap.current[row.id]}px`)
+                  }
+                  onEntered={(node) => (node.style.height = 'auto')}
+                  onExit={(node) =>
+                    (node.style.height = `${rowHeightMap.current[row.id]}px`)
+                  }
+                  onExiting={(node) => (node.style.height = `0px`)}
+                  // onExited={(node) => (node.style.height = `auto`)}
+                  classNames='iui'
+                >
+                  <TableRowMemoized
+                    row={row}
+                    key={row.getRowProps().key}
+                    rowProps={rowProps}
+                    isLast={row.index === data.length - 1}
+                    onRowInViewport={onRowInViewportRef}
+                    onBottomReached={onBottomReachedRef}
+                    intersectionMargin={intersectionMargin}
+                    state={state}
+                    onClick={onRowClickHandler}
+                    subComponent={subComponent}
+                    isDisabled={!!isRowDisabled?.(row.original)}
+                    tableHasSubRows={hasAnySubRows}
+                    tableInstance={instance}
+                    expanderCell={expanderCell}
+                    ref={(ref: HTMLElement) => {
+                      if (ref) {
+                        rowHeightMap.current[row.id] = ref.offsetHeight;
+                      }
+                    }}
+                  />
+                </CSSTransition>
+              ) : (
+                <TableRowMemoized
+                  row={row}
+                  key={row.getRowProps().key}
+                  rowProps={rowProps}
+                  isLast={row.index === data.length - 1}
+                  onRowInViewport={onRowInViewportRef}
+                  onBottomReached={onBottomReachedRef}
+                  intersectionMargin={intersectionMargin}
+                  state={state}
+                  onClick={onRowClickHandler}
+                  subComponent={subComponent}
+                  isDisabled={!!isRowDisabled?.(row.original)}
+                  tableHasSubRows={hasAnySubRows}
+                  tableInstance={instance}
+                  expanderCell={expanderCell}
+                  ref={(ref: HTMLElement) => {
+                    if (ref) {
+                      rowHeightMap.current[row.id] = ref.offsetHeight;
+                    }
+                  }}
+                />
+              );
+            })}
+        </TransitionGroup>
+        {/* )}
+        {!hasAnySubRows &&
+          data.length !== 0 &&
           rows.map((row: Row<T>) => {
             prepareRow(row);
             return (
               <TableRowMemoized
                 row={row}
+                key={row.getRowProps().key}
                 rowProps={rowProps}
                 isLast={row.index === data.length - 1}
                 onRowInViewport={onRowInViewportRef}
                 onBottomReached={onBottomReachedRef}
                 intersectionMargin={intersectionMargin}
                 state={state}
-                key={row.getRowProps().key}
                 onClick={onRowClickHandler}
                 subComponent={subComponent}
                 isDisabled={!!isRowDisabled?.(row.original)}
                 tableHasSubRows={hasAnySubRows}
                 tableInstance={instance}
                 expanderCell={expanderCell}
+                ref={(ref: HTMLElement) => {
+                  if (ref) {
+                    console.log(ref.offsetHeight);
+                    rowHeightMap.current[row.id] = ref.offsetHeight;
+                  }
+                }}
               />
             );
-          })}
+          })} */}
         {isLoading && data.length === 0 && (
           <div className={'iui-table-empty'}>
             <ProgressRadial indeterminate={true} />

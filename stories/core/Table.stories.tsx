@@ -781,6 +781,9 @@ export const LazyLoading: Story<TableProps> = (args) => {
       .map((_, index) => ({
         name: `Name${start + index}`,
         description: `Description${start + index}`,
+        subRows: [
+          { name: 'Row 1.1', description: 'Description 1.1', subRows: [] },
+        ],
       }));
   };
 
