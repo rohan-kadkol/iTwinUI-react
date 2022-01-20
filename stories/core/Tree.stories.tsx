@@ -16,9 +16,9 @@ export default {
     style: { control: { disable: true } },
   },
   title: 'Core/Tree',
-} as Meta<TreeProps>;
+} as Meta<TreeProps<any>>;
 
-export const Basic: Story<TreeProps> = (args) => {
+export const Basic: Story<TreeProps<any>> = (args) => {
   const [selectedNodes, setSelectedNodes] = React.useState([
     'Node 0',
     'Node 3.2',
@@ -63,17 +63,17 @@ export const Basic: Story<TreeProps> = (args) => {
   ]);
 
   const generateItem = React.useCallback(
-    (index: number, parentRow = '', depth = 0): NodeData => {
+    (index: number, parentRow = '', depth = 0): any => {
       const keyValue = parentRow ? `${parentRow}.${index}` : `${index}`;
       return {
-        nodeId: `Node ${keyValue}`,
+        id: `${keyValue}`,
         label: `Node ${keyValue}`,
         subLabel: `Sublabel for Node ${keyValue}`,
         isExpanded:
           expandedNodes.findIndex((id) => id === `Node ${keyValue}`) != -1,
         isDisabled:
           disabledNodes.findIndex((id) => id === `Node ${keyValue}`) != -1,
-        subnodes:
+        subItems:
           depth < 10
             ? Array(Math.round(index % 5))
                 .fill(null)
@@ -92,32 +92,33 @@ export const Basic: Story<TreeProps> = (args) => {
     [generateItem],
   );
 
-  const getNode = (node: number) => {
-    return data[node];
+  const getNode = (node: any): NodeData<any> => {
+    return {
+      subNodes: node.subItems,
+      nodeId: node.id,
+      node: node,
+      isExpanded: expandedNodes.findIndex((id) => id === `${node.id}`) != -1,
+      isDisabled: disabledNodes.findIndex((id) => id === `${node.id}`) != -1,
+    };
   };
 
   return (
-    <Tree
-      nodeCount={50}
+    <Tree<any>
+      data={data}
       getNode={getNode}
-      nodeRenderer={(props) => (
+      nodeRenderer={({ node, ...rest }) => (
         <TreeNode
-          nodeId={props.nodeId}
-          label={props.label}
-          sublabel={props.subLabel}
-          subNodes={props.subnodes}
+          label={node.label}
+          sublabel={node.subLabel}
           onNodeExpanded={onNodeExpanded}
           onNodeSelected={onSelectedNodeChange}
-          isDisabled={props.isDisabled}
-          isExpanded={props.isExpanded}
           nodeCheckbox={
-            <Checkbox variant='eyeball' disabled={props.isDisabled} />
+            <Checkbox variant='eyeball' disabled={rest.isDisabled} />
           }
           icon={<SvgPlaceholder />}
+          {...rest}
         />
       )}
-      selectedNodes={selectedNodes}
-      {...args}
     />
   );
 };

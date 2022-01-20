@@ -10,7 +10,7 @@ import { IconButton } from '../Buttons/IconButton';
 import cx from 'classnames';
 import { TreeContext, NodeData } from './Tree';
 
-export type TreeNodeProps = {
+export type TreeNodeProps<T> = {
   /**
    * Unique id of the node.
    */
@@ -49,7 +49,7 @@ export type TreeNodeProps = {
    * The TreeNode's child nodes.
    * If undefined or empty, expander button is not shown.
    */
-  subNodes?: Array<NodeData>;
+  subNodes?: Array<NodeData<T>>;
   /**
    * Checkbox to be shown before TreeNode.
    * If undefined checkbox will not be shown.
@@ -60,6 +60,7 @@ export type TreeNodeProps = {
    * Content shown after TreeNode.
    */
   children?: React.ReactNode;
+  depth?: number;
 } & CommonProps;
 
 /**
@@ -77,7 +78,7 @@ export type TreeNodeProps = {
     icon={<SvgPlaceholder />}
   />
  */
-export const TreeNode = (props: TreeNodeProps) => {
+export const TreeNode = <T,>(props: TreeNodeProps<T>) => {
   const {
     nodeId,
     label,
@@ -92,12 +93,13 @@ export const TreeNode = (props: TreeNodeProps) => {
     onNodeExpanded,
     subNodes,
     nodeCheckbox,
+    depth = 0,
     ...rest
   } = props;
   useTheme();
 
   const context = React.useContext(TreeContext);
-  const nodeDepth = context?.nodeDepth ?? 0;
+  const nodeDepth = depth;
 
   const subNodeIds = React.useMemo(() => {
     const nodes = Array<string>();
