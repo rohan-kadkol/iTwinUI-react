@@ -18,6 +18,7 @@ import {
   InputContainerProps,
   mergeRefs,
   useVirtualization,
+  VirtualScrollProps,
 } from '../utils';
 import SvgCaretDownSmall from '@itwin/itwinui-icons-react/cjs/icons/CaretDownSmall';
 import 'tippy.js/animations/shift-away.css';
@@ -391,12 +392,6 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
     [menuItems],
   );
 
-  const { outerProps, innerProps, visibleChildren } = useVirtualization({
-    itemsLength: menuItems.length,
-    itemRenderer: virtualizedItemRenderer,
-    scrollToIndex: focusedIndex,
-  });
-
   return (
     <InputContainer
       className={className}
@@ -435,16 +430,12 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
                   }}
                   className='iui-menu iui-scroll'
                 >
-                  <div className='hi-look-at-me' {...outerProps}>
-                    <Menu
-                      className='hi-look-at-me-too' // inspect DOM to prove this is working
-                      id={`${id}-list`}
-                      role='listbox'
-                      {...innerProps}
-                    >
-                      {visibleChildren}
-                    </Menu>
-                  </div>
+                  <VirtualizedComboBoxMenu
+                    id={id}
+                    itemsLength={menuItems.length}
+                    itemRenderer={virtualizedItemRenderer}
+                    scrollToIndex={focusedIndex}
+                  />
                 </div>
               ) : (
                 <Menu
@@ -513,6 +504,26 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
         </span>
       </div>
     </InputContainer>
+  );
+};
+
+const VirtualizedComboBoxMenu = ({
+  id,
+  ...props
+}: { id: string } & VirtualScrollProps) => {
+  const { outerProps, innerProps, visibleChildren } = useVirtualization(props);
+  return (
+    <div className='hi-look-at-me' {...outerProps}>
+      <Menu
+        className='hi-look-at-me-too' // inspect DOM to prove this is working
+        id={`${id}-list`}
+        role='listbox'
+        setFocus={false}
+        {...innerProps}
+      >
+        {visibleChildren}
+      </Menu>
+    </div>
   );
 };
 
