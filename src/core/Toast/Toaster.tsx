@@ -3,10 +3,10 @@
  * See LICENSE.md in the project root for license terms and full copyright notice.
  *--------------------------------------------------------------------------------------------*/
 import React from 'react';
-import ReactDOM from 'react-dom';
 import { getContainer } from '../utils';
 import { ToastCategory, ToastProps } from './Toast';
 import { ToastWrapper } from './ToastWrapper';
+import { createRoot } from 'react-dom/client';
 
 const TOASTS_CONTAINER_ID = 'iui-toasts-container';
 
@@ -110,9 +110,9 @@ export default class Toaster {
       return;
     }
 
-    ReactDOM.render(
+    const root = createRoot(container);
+    root.render(
       <ToastWrapper toasts={this.toasts} placement={this.settings.placement} />,
-      container,
     );
   }
 

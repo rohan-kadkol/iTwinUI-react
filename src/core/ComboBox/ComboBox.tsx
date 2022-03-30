@@ -2,7 +2,7 @@
  * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
  * See LICENSE.md in the project root for license terms and full copyright notice.
  *--------------------------------------------------------------------------------------------*/
-import React from 'react';
+import React, { useId } from 'react';
 import cx from 'classnames';
 import { Input, InputProps } from '../Input';
 import { Menu, MenuExtraContent, MenuItem } from '../Menu';
@@ -15,7 +15,6 @@ import {
   PopoverProps,
   CommonProps,
   getFocusableElements,
-  getRandomValue,
   InputContainerProps,
   mergeRefs,
 } from '../utils';
@@ -108,12 +107,8 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
   } = props;
 
   // Generate a stateful random id if not specified
-  const [id] = React.useState(
-    () =>
-      props.id ??
-      (inputProps?.id && `${inputProps.id}-cb`) ??
-      `iui-cb-${getRandomValue(10)}`,
-  );
+  const randomId = useId();
+  const id = props.id ?? randomId;
 
   useTheme();
 
