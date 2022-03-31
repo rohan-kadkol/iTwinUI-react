@@ -201,6 +201,13 @@ export const useVirtualization = (props: VirtualScrollProps) => {
     (parentRef.current?.ownerDocument.scrollingElement as HTMLElement);
 
   const visibleChildren = React.useMemo(() => {
+    console.log(
+      'visible ch',
+      itemsLength,
+      bufferSize,
+      startNode,
+      visibleNodeCount,
+    );
     const arr = [];
     const endIndex = Math.min(
       itemsLength,
@@ -210,10 +217,11 @@ export const useVirtualization = (props: VirtualScrollProps) => {
       arr.push(itemRenderer(i));
     }
     return arr;
-  }, [itemsLength, itemRenderer, bufferSize, startNode, visibleNodeCount]);
+  }, [itemsLength, bufferSize, startNode, visibleNodeCount, itemRenderer]);
 
   // Get child height when children available
   React.useLayoutEffect(() => {
+    console.log('height find');
     if (!parentRef.current || !visibleChildren.length) {
       return;
     }
@@ -237,6 +245,7 @@ export const useVirtualization = (props: VirtualScrollProps) => {
   }, [visibleChildren.length]);
 
   const updateVirtualScroll = React.useCallback(() => {
+    console.log('update');
     const scrollableContainer = getScrollableContainer();
     if (!scrollableContainer) {
       return;
@@ -256,7 +265,7 @@ export const useVirtualization = (props: VirtualScrollProps) => {
     // show more items at the start
     const startIndex = Math.min(
       Math.max(0, start - bufferSize),
-      itemsLength - bufferSize * 2 - visibleNodes,
+      Math.max(0, itemsLength - bufferSize * 2 - visibleNodes),
     );
     visibleIndex.current = { start: start, end: start + visibleNodes };
     setStartNode(startIndex);
@@ -307,6 +316,7 @@ export const useVirtualization = (props: VirtualScrollProps) => {
   }, [onScroll, removeScrollListener]);
 
   React.useLayoutEffect(() => {
+    console.log('calc', scrollToIndex, isMounted);
     if (!isMounted) {
       return;
     }
@@ -369,7 +379,7 @@ export const useVirtualization = (props: VirtualScrollProps) => {
         });
       }
     }
-  }, [scrollToIndex, isMounted]);
+  }, [isMounted, scrollToIndex]);
 
   React.useLayoutEffect(() => {
     if (!scrollContainerHeight) {

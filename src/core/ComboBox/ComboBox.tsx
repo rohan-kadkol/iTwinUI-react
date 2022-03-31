@@ -102,6 +102,8 @@ export type ComboBoxProps<T> = {
 } & Pick<InputContainerProps, 'status'> &
   Omit<CommonProps, 'title'>;
 
+type ExtendedSelectOption<T> = SelectOption<T> & { id: string; index: number };
+
 /**
  * ComboBox component that allows typing a value to filter the options in dropdown list.
  * Values can be selected either using mouse clicks or using the Enter key.
@@ -140,57 +142,67 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
       `iui-cb-${getRandomValue(10)}`,
   );
 
-  useTheme();
-
-  /** Generates a memoized id for an option, given the index from original list */
-  const getOptionId = React.useCallback(
-    (index: number) =>
-      options[index].id ??
-      `${id}-option${options.findIndex(
-        ({ value }) => value === options[index].value,
-      )}`,
-    [options, id],
-  );
-
-  const userOnChange = React.useRef(onChange);
-
-  const memoizedItems = React.useMemo(
-    () =>
-      options.map((option, index) => {
-        const { label, value, ...rest } = option;
-        const additionalProps = {
-          value: value,
-          role: 'option',
-          onClick: () => {
-            setSelectedValue(value);
-            userOnChange.current?.(value);
-            setIsOpen(false);
-          },
-        };
-        if (itemRenderer) {
-          return React.cloneElement(
+  const mapOptions = React.useCallback(() => {
+    console.log('mapOptions');
+    const newOptionsMap: Record<string, ExtendedSelectOption<T>> = {};
+    const jsxItems: JSX.Element[] = [];
+    const newOptions = options.map((option, index) => {
+      const optionId = `${id}-option${index}`;
+      const newOption = {
+        ...option,
+        id: option.id ?? optionId,
+        index,
+      };
+      newOptionsMap[newOption.id] = newOption;
+      const { label, value, ...rest } = option;
+      const additionalProps = {
+        value: value,
+        role: 'option',
+        onClick: () => {
+          setSelectedValueId(newOption.id);
+          userOnChange.current?.(value);
+          setIsOpen(false);
+        },
+      };
+      if (itemRenderer) {
+        jsxItems.push(
+          React.cloneElement(
             itemRenderer(option, {
-              id: getOptionId(index),
+              id: newOption.id,
               index,
               isSelected: false,
               isFocused: false,
             }),
             additionalProps,
-          );
-        }
-        return (
-          <MenuItem
-            id={getOptionId(index)}
-            key={getOptionId(index)}
-            {...additionalProps}
-            {...rest}
-          >
-            {label}
-          </MenuItem>
+          ),
         );
-      }),
-    [options, getOptionId, itemRenderer],
-  );
+      } else {
+        jsxItems.push(
+          <MenuItem key={newOption.id} {...additionalProps} {...rest}>
+            {label}
+          </MenuItem>,
+        );
+      }
+      return newOption;
+    });
+    optionsMap.current = newOptionsMap;
+    setMemoizedItems(jsxItems);
+    setExtendedOriginalOptions(newOptions);
+  }, [id, itemRenderer, options]);
+
+  const [extendedOriginalOptions, setExtendedOriginalOptions] = React.useState<
+    ExtendedSelectOption<T>[]
+  >([]);
+  const optionsMap = React.useRef<Record<string, ExtendedSelectOption<T>>>({});
+  const [memoizedItems, setMemoizedItems] = React.useState<JSX.Element[]>([]);
+
+  React.useEffect(() => {
+    mapOptions();
+  }, [mapOptions]);
+
+  useTheme();
+
+  const userOnChange = React.useRef(onChange);
 
   const inputRef = React.useRef<HTMLInputElement>(null);
   const toggleButtonRef = React.useRef<HTMLSpanElement>(null);
@@ -204,22 +216,25 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
     }
   }, [isOpen]);
 
-  const [filteredOptions, setFilteredOptions] = React.useState(options);
+  const [filteredOptions, setFilteredOptions] = React.useState<
+    ExtendedSelectOption<T>[]
+  >(extendedOriginalOptions);
   React.useEffect(() => {
-    setFilteredOptions(options);
-  }, [options]);
+    setFilteredOptions(extendedOriginalOptions);
+  }, [extendedOriginalOptions]);
 
-  const [focusedIndex, setFocusedIndex] = React.useState(() =>
-    options.findIndex((option) => value === option.value),
-  );
+  const [focusedIndex, setFocusedIndex] = React.useState<
+    ExtendedSelectOption<T> | undefined
+  >(() => (selectedValueId ? optionsMap.current[selectedValueId] : undefined));
 
   // Maintain internal selected value state synced with `value` prop
-  const [selectedValue, setSelectedValue] = React.useState<T | undefined>(
-    value,
-  );
+  const [selectedValueId, setSelectedValueId] = React.useState<string>();
+
   React.useEffect(() => {
-    setSelectedValue(value);
-  }, [value]);
+    setSelectedValueId(
+      extendedOriginalOptions.find((option) => option.value === value)?.id,
+    );
+  }, [extendedOriginalOptions, value]);
 
   // Controlled input value
   const [inputValue, setInputValue] = React.useState<string>('');
@@ -233,64 +248,86 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
 
   // update inputValue and focusedIndex every time selected value changes
   React.useEffect(() => {
-    const selectedOption = options.find(({ value }) => value === selectedValue);
-    setInputValue(selectedOption?.label ?? '');
-    setFocusedIndex(selectedOption ? options.indexOf(selectedOption) : -1);
-  }, [selectedValue, options]);
+    if (!selectedValueId) {
+      return;
+    }
+    const selectedOption = optionsMap.current[selectedValueId];
+    if (!selectedOption) {
+      return;
+    }
+    setInputValue(selectedOption.label);
+    setFocusedIndex(selectedOption);
+  }, [selectedValueId]);
 
   // Filter options and update focus when input value changes
   React.useEffect(() => {
     if (!isOpen) {
       return;
     }
+    console.log('rerende ron input change');
 
     // if input is empty or same as selected value, show the whole list
-    const selectedOption = options.find(({ value }) => value === selectedValue);
-    if (!inputValue || selectedOption?.label === inputValue) {
-      setFilteredOptions(options);
+    // const selectedOption = options.find(({ value }) => value === selectedValue);
+    const selectedValue = selectedValueId
+      ? optionsMap.current[selectedValueId]
+      : undefined;
+    if (!inputValue || selectedValue?.label === inputValue) {
+      setFilteredOptions(extendedOriginalOptions);
       return;
     }
 
-    const _filteredOptions =
-      filterFunction?.(options, inputValue) ??
-      options.filter((option) =>
+    const _filteredOptions: ExtendedSelectOption<T>[] =
+      filterFunction?.(extendedOriginalOptions, inputValue).map((el) => {
+        const extendedOption =
+          extendedOriginalOptions.find((e) => e.value === el.value) ??
+          ({} as ExtendedSelectOption<T>);
+        return {
+          ...el,
+          ...extendedOption,
+        };
+      }) ??
+      extendedOriginalOptions.filter((option) =>
         option.label.toLowerCase().includes(inputValue?.trim().toLowerCase()),
       );
     setFilteredOptions(_filteredOptions);
 
     setFocusedIndex((previouslyFocusedIndex) => {
-      if (_filteredOptions.includes(options[previouslyFocusedIndex])) {
+      if (_filteredOptions.some((el) => el.id === previouslyFocusedIndex?.id)) {
         return previouslyFocusedIndex;
       } else if (
-        _filteredOptions.find(({ value }) => value === selectedValue)
+        _filteredOptions.some(({ value }) => value === selectedValue?.value)
       ) {
-        return options.findIndex(({ value }) => value === selectedValue);
+        return selectedValue;
       } else {
-        return -1; // reset focus if previously focused or selected value is not in filtered list
+        return undefined; // reset focus if previously focused or selected value is not in filtered list
       }
     });
-  }, [inputValue, options, selectedValue, isOpen, filterFunction]);
+  }, [
+    inputValue,
+    selectedValueId,
+    isOpen,
+    filterFunction,
+    extendedOriginalOptions,
+  ]);
 
   const onKeyDown = React.useCallback(
     (event: React.KeyboardEvent) => {
       switch (event.key) {
         case 'ArrowDown':
+          console.log('DOWN', isOpen);
           if (isOpen) {
-            const filteredFocusedIndex =
-              focusedIndex === -1
-                ? -1
-                : filteredOptions.findIndex(
-                    (option) => option.value === options[focusedIndex].value,
-                  );
+            const filteredFocusedIndex = focusedIndex?.index ?? -1;
             const nextFilteredOption = filteredOptions.find(
               (option, index) =>
                 index > filteredFocusedIndex && !option.disabled,
             );
-            const nextIndex = options.findIndex(
-              (option) => option.value === nextFilteredOption?.value,
+            console.log(
+              'down',
+              filteredFocusedIndex,
+              nextFilteredOption?.index,
             );
-            if (nextIndex >= 0) {
-              setFocusedIndex(nextIndex);
+            if (nextFilteredOption) {
+              setFocusedIndex(nextFilteredOption);
             }
           } else {
             setIsOpen(true); // reopen menu if closed when typing
@@ -299,32 +336,32 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
           event.stopPropagation();
           break;
         case 'ArrowUp':
-          if (isOpen && focusedIndex > 0) {
-            const filteredFocusedIndex = filteredOptions.findIndex(
-              (option) => option.value === options[focusedIndex].value,
-            );
+          if (isOpen && focusedIndex) {
+            const filteredFocusedIndex = focusedIndex.index;
             if (filteredFocusedIndex === 0) {
               break;
             }
-            let nextFilteredOption: SelectOption<T>;
+            let nextFilteredOption:
+              | ExtendedSelectOption<T>
+              | undefined = undefined;
             for (let i = filteredFocusedIndex - 1; i >= 0; --i) {
               if (!!filteredOptions[i] && !filteredOptions[i].disabled) {
                 nextFilteredOption = filteredOptions[i];
                 break;
               }
             }
-            const nextIndex = options.findIndex(
-              (option) => option.value === nextFilteredOption?.value,
-            );
-            setFocusedIndex(nextIndex);
+            console.log('up', nextFilteredOption?.index);
+            if (nextFilteredOption) {
+              setFocusedIndex(nextFilteredOption);
+            }
           }
           event.preventDefault();
           event.stopPropagation();
           break;
         case 'Enter':
-          if (isOpen) {
-            setSelectedValue(options[focusedIndex].value);
-            userOnChange.current?.(options[focusedIndex].value);
+          if (isOpen && focusedIndex) {
+            setSelectedValueId(focusedIndex.id);
+            userOnChange.current?.(focusedIndex.value);
           }
           setIsOpen((open) => !open);
           event.preventDefault();
@@ -345,7 +382,61 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
           break;
       }
     },
-    [isOpen, filteredOptions, focusedIndex, options],
+    [isOpen, focusedIndex, filteredOptions],
+  );
+
+  const getSingleMenuItem = React.useCallback(
+    (index: number) => {
+      const filteredOption = filteredOptions[index];
+      if (filteredOptions.length < 150) {
+        console.log(index, filteredOptions);
+      }
+      if (!filteredOption) {
+        return undefined;
+      }
+
+      const isSelected = selectedValueId === filteredOption.id;
+      const isFocused = focusedIndex?.id === filteredOption.id;
+      const focusScrollRef = (el: HTMLElement) => {
+        if (!enableVirtualization && isFocused) {
+          el?.scrollIntoView({ block: 'nearest' });
+        }
+      };
+      const originalIndex = optionsMap.current[filteredOption.id]?.index;
+
+      if (isSelected || isFocused) {
+        const item =
+          itemRenderer?.(filteredOption, {
+            index: originalIndex,
+            id: filteredOption.id,
+            isSelected,
+            isFocused,
+          }) ??
+          React.cloneElement(memoizedItems[originalIndex], { isSelected });
+
+        return React.cloneElement(item, {
+          className: cx({ 'iui-focused': isFocused }, item.props.className),
+          ref: mergeRefs(focusScrollRef, item.props.ref),
+          value: filteredOption.value,
+          role: 'option',
+          onClick: () => {
+            setSelectedValueId(filteredOption.id);
+            userOnChange.current?.(filteredOption.value);
+            setIsOpen(false);
+          },
+        });
+      }
+
+      return memoizedItems[originalIndex];
+    },
+    [
+      enableVirtualization,
+      filteredOptions,
+      focusedIndex?.id,
+      itemRenderer,
+      memoizedItems,
+      selectedValueId,
+    ],
   );
 
   const menuItems = React.useMemo(() => {
@@ -356,56 +447,17 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
         </MenuExtraContent>,
       ];
     }
-    return filteredOptions.map((option) => {
-      const index = options.findIndex(({ value }) => option.value === value);
-      if (index < 0) {
-        return <></>;
-      }
-
-      const id = getOptionId(index);
-      const isSelected = selectedValue === option.value;
-      const isFocused = focusedIndex === index;
-      const focusScrollRef = (el: HTMLElement) => {
-        if (!enableVirtualization && focusedIndex === index) {
-          el?.scrollIntoView({ block: 'nearest' });
-        }
-      };
-
-      if (isSelected || isFocused) {
-        const item =
-          itemRenderer?.(option, { index, id, isSelected, isFocused }) ??
-          React.cloneElement(memoizedItems[index], { isSelected });
-
-        return React.cloneElement(item, {
-          className: cx({ 'iui-focused': isFocused }, item.props.className),
-          ref: mergeRefs(focusScrollRef, item.props.ref),
-          value: option.value,
-          role: 'option',
-          onClick: () => {
-            setSelectedValue(option.value);
-            userOnChange.current?.(option.value);
-            setIsOpen(false);
-          },
-        });
-      }
-
-      return memoizedItems[index];
-    });
-  }, [
-    filteredOptions,
-    emptyStateMessage,
-    options,
-    getOptionId,
-    selectedValue,
-    focusedIndex,
-    itemRenderer,
-    memoizedItems,
-    enableVirtualization,
-  ]);
+    return filteredOptions.map((option, index) => getSingleMenuItem(index));
+  }, [filteredOptions, emptyStateMessage, getSingleMenuItem]);
 
   const virtualizedItemRenderer = React.useCallback(
-    (index) => menuItems[index],
-    [menuItems],
+    (index) =>
+      getSingleMenuItem(index) ?? (
+        <MenuExtraContent key={0}>
+          <Text isMuted>{emptyStateMessage}</Text>
+        </MenuExtraContent>
+      ),
+    [emptyStateMessage, getSingleMenuItem],
   );
 
   return (
@@ -448,9 +500,9 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
                 >
                   <VirtualComboboxMenu
                     id={`${id}-list`}
-                    itemsLength={menuItems.length}
+                    itemsLength={filteredOptions.length}
                     itemRenderer={virtualizedItemRenderer}
-                    scrollToIndex={focusedIndex}
+                    scrollToIndex={focusedIndex?.index}
                   />
                 </div>
               ) : (
@@ -471,12 +523,12 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
             </>
           }
           onHide={(instance) => {
-            const selectedIndex = options.findIndex(
-              ({ value }) => value === selectedValue,
-            );
+            const selectedIndex = selectedValueId
+              ? optionsMap.current[selectedValueId]
+              : undefined;
             setFocusedIndex(selectedIndex);
-            if (selectedIndex > -1) {
-              setInputValue(options[selectedIndex].label); // update input value to be same as selected value
+            if (selectedIndex) {
+              setInputValue(selectedIndex.label); // update input value to be same as selected value
             }
             dropdownMenuProps?.onHide?.(instance);
           }}
@@ -487,9 +539,7 @@ export const ComboBox = <T,>(props: ComboBoxProps<T>) => {
             onFocus={() => setIsOpen(true)}
             value={inputValue}
             aria-activedescendant={
-              isOpen && focusedIndex > -1
-                ? getOptionId(focusedIndex)
-                : undefined
+              isOpen && focusedIndex ? focusedIndex.id : undefined
             }
             role='combobox'
             aria-controls={isOpen ? `${id}-list` : undefined}

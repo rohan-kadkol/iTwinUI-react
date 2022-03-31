@@ -304,7 +304,13 @@ const countriesList = [
 ];
 
 export const Basic: Story<Partial<ComboBoxProps<string>>> = (args) => {
-  const options = React.useMemo(() => countriesList, []);
+  const options = React.useMemo(
+    () =>
+      Array(10000)
+        .fill(null)
+        .map((_, i) => ({ value: `${i}`, label: `Item ${i}` })),
+    [],
+  );
 
   return (
     <ComboBox
@@ -499,7 +505,13 @@ WithCustomMessageIcon.args = {
 };
 
 export const Virtualized: Story<Partial<ComboBoxProps<string>>> = (args) => {
-  const options = React.useMemo(() => countriesList, []);
+  const options = React.useMemo(
+    () =>
+      Array(10000)
+        .fill(null)
+        .map((_, i) => ({ value: `${i}`, label: `Item ${i}` })),
+    [],
+  );
 
   return (
     <ComboBox
